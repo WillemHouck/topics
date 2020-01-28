@@ -16,8 +16,21 @@
 ##            similarly structured.  However, feel free to add other arguments
 ##            to the function definitions as needed.
 
+# install.packages("robustbase")
+# install.packages("ggplot2")
+
+library("robustbase")
+library("ggplot2")
+
+# Preparing data ----------------------------------------------------------
+rm(list=ls())
+load("/Users/Willem/Erasmus/Master/Topics in Advanced Statistics/Eredivisie28.RData")
+options(scipen=999)
+plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4, col=rgb(0.3,0.5,1,0.4),
+     xlab="Age" , ylab="Market value", xlim = c(15,30) )
 
 
+# Writing functions -------------------------------------------------------
 ## Functions for initial estimators
 
 # Input: the standardized data matrix z
