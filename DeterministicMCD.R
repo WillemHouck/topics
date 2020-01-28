@@ -16,21 +16,8 @@
 ##            similarly structured.  However, feel free to add other arguments
 ##            to the function definitions as needed.
 
-# install.packages("robustbase")
-# install.packages("ggplot2")
-
-library("robustbase")
-library("ggplot2")
-
-# Preparing data ----------------------------------------------------------
-rm(list=ls())
-load("/Users/Willem/Erasmus/Master/Topics in Advanced Statistics/Eredivisie28.RData")
-options(scipen=999)
-plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4, col=rgb(0.3,0.5,1,0.4),
-     xlab="Age" , ylab="Market value", xlim = c(15,30) )
 
 
-# Writing functions -------------------------------------------------------
 ## Functions for initial estimators
 
 # Input: the standardized data matrix z
@@ -72,26 +59,26 @@ covMSS <- function(z) {
 covBACON1 <- function(z) {
   z.norm = as.matrix(apply(z,1,function(x) sqrt(sum(x**2))))
   indices = (apply(z.norm, 2, order)[ 1:round(length(z.norm)/2, digits= 0), ])
-  
-  return (cor(z[c(indices),]))
+  return (cov(z[c(indices),]))
   
 }
-
+# covBACON1(iris.scale)
 # raw OGK estimator of the covariance matrix with median and Qn
 rawCovOGK <- function(z) {
   # *enter your code here*
-  # Assume z is already scaled properly and columns have 
+  # Assume z is already scaled properly and columns have
   # scale equal to one
   # Hint: have a look at function covOGK() in package robustbase
   s = Qn
   # m <- function(x) {apply(x,2,median)}
-  # d.inv = solve(diag(apply(z,2,s)))
+  # d = solve(diag(apply(z,2,s)))
+  # print(d)
   # print(d.inv)
   # print(dim(z), dim(d.inv))
   # x = z%*%d.inv
   p = ncol(z)
   u = matrix(,nrow=p,ncol=p)
-  
+
   for (j in 1:p){
     for (k in 1:p){
       u[j,k] = .25*(s(z[, j] + z[, k])**2 - s(z[, j] - z[, k])**2)
@@ -99,16 +86,16 @@ rawCovOGK <- function(z) {
   }
   E = eigen(u, symmetric = TRUE)$vectors
   V = z%*%E
-  L = diag(apply(V,2,s))**2
+  L = diag(apply(V,2,s)**2)
   # mu = as.matrix(m(V))
   epsilon = E%*%L%*%t(E)
   # mu.raw = D%*%mu
   # epsilon.raw = d.inv%*%epsilon%*%t(d.inv)
   return(epsilon)
-  
+
   }
 
-# rawCovOGK(iris.scale)
+# rawCovOGK(as.matrix(iris.scale))
 Cstep <- function(H, indices, z, h){
   # H should be a list containing the a subset with size h
   T.hat = list()
@@ -116,7 +103,7 @@ Cstep <- function(H, indices, z, h){
   indices.all = list()
   #initialise
   T.k = apply(H, 2, mean)
-  S.k = cor(H)
+  S.k = cov(H)
   T.k1 = T.k
   S.k1 = S.k
   indices.1 = indices
@@ -129,7 +116,7 @@ Cstep <- function(H, indices, z, h){
     d = as.matrix(sqrt(mahalanobis(z,T.k,S.k)))
     indices.1 = (apply(d, 2, order)[ 1:h, ])
     H = z[indices.1, ]
-    S.k1 = cor(H)
+    S.k1 = cov(H)
     T.k1 = apply(H, 2, mean)
     
   }
@@ -175,8 +162,7 @@ covDetMCD <- function(x, alpha, ...) {
   #save raw estimates as (parameters x amount of initial covariances) parameters =(location, scale, indices)
   estimates.raw = list()
   h = h.alpha.n(alpha, n = nrow(z) , p = ncol(z))
-  print(h)
-  
+
   for (k in 1:length(S)){
     # for each initial cov, calculate the mean and cov for H0
     S.k = S[[k]]
@@ -192,12 +178,12 @@ covDetMCD <- function(x, alpha, ...) {
     #construct distances based on estimate k, select smallest h0 = n/2 and based on these observations
     #calculate d.k*. Then select subsets size h and input in Cstep
     d.k = as.matrix(sqrt(mahalanobis(z, mu.k,eps.k)))
-    indices = (apply(d.k, 2, order)[ 1:round(nrow(z)/2,digits = 0), ])
+    indices = (apply(d.k, 2, order)[ 1:round(nrow(z)/2, digits = 0), ])
     H0 = z[indices, ]
-    d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cor(H0))))
+    d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cov(H0))))
     indices.star =  (apply(d.k.star, 2, order)[ 1:h, ])
     
-    estimates.raw[[k]] = Cstep(z[indices.star, ], indices.star, z, h)
+    estimates.raw[[k]] = Cstep(z[indices.star, ], indices, z, h)
     covs[[k]] = estimates.raw[[k]][[2]]
     
   }
@@ -213,10 +199,10 @@ covDetMCD <- function(x, alpha, ...) {
   z.weight = diag(w)%*%z
   z.weight = z.weight[as.logical(rowSums(z.weight != 0)), ]
   T.MCD = apply(z.weight,2,mean)
-  S.MCD = cor(z.weight)
+  S.MCD = cov(z.weight)
   return(list(T.MCD, S.MCD, w, T.raw, S.raw, indices.raw))
 }
-covDetMCD(iris[-5], 0.975)
+output = covDetMCD(iris[-5], 0.975)
 
 
 ## Function for regression based on the deterministic MCD
