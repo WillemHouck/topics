@@ -129,8 +129,11 @@ Cstep <- function(H, indices, z, h){
   T.k1 = T.k
   S.k1 = S.k
   indices.1 = indices
-  while (identical(T.k, T.k1) & identical(S.k, S.k1)){
+  i = 0
+  epsilon = 0.001
+  while ((((sum(T.k - T.k1) <= epsilon) & (sum(S.k - S.k1)) <= epsilon) ) & (i<= 100) ){
     #set previous values to next values such that when while loop is exited, the old values are returned.
+    i = i + 1
     T.k = T.k1
     S.k = S.k1
     indices = indices.1
@@ -140,8 +143,8 @@ Cstep <- function(H, indices, z, h){
     H = z[indices.1, ]
     S.k1 = cov(H)
     T.k1 = apply(H, 2, mean)
-    
   }
+  print(S.k)
   # indices.all = indices
   # T.hat = T.k
   # S.hat= S.k
@@ -200,13 +203,21 @@ covDetMCD <- function(x, alpha, ...) {
     
     #construct distances based on estimate k, select smallest h0 = n/2 and based on these observations
     #calculate d.k*. Then select subsets size h and input in Cstep
+<<<<<<< Updated upstream
     d.k = as.matrix(sqrt(mahalanobis(z, mu.k,eps.k)))
     indices = (apply(d.k, 2, order)[ 1:round(nrow(z)/2,digits = 0), ])
     H0 = z[indices, ]
     d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cov(H0))))
     indices.star =  (apply(d.k.star, 2, order)[ 1:h, ])
+=======
+    d.0 = as.matrix(sqrt(mahalanobis(z, mu.k,eps.k)))
+    indices = (apply(d.0, 2, order)[ 1:h, ])
+    # H0 = z[indices, ]
+    # d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cov(H0))))
+    # indices.star =  (apply(d.k.star, 2, order)[ 1:h, ])
+>>>>>>> Stashed changes
     
-    estimates.raw[[k]] = Cstep(z[indices.star, ], indices, z, h)
+    estimates.raw[[k]] = Cstep(z[indices, ], indices, z, h)
     covs[[k]] = estimates.raw[[k]][[2]]
     
   }
@@ -225,6 +236,10 @@ covDetMCD <- function(x, alpha, ...) {
   S.MCD = cov(z.weight)
   return(list(T.MCD, S.MCD, w, T.raw, S.raw, indices.raw))
 }
+<<<<<<< Updated upstream
+=======
+output_E = covDetMCD(Eredivisie28, 0.975)
+>>>>>>> Stashed changes
 
 output_iris <- covDetMCD(iris[-5], 0.975)
 output_erediv <- covDetMCD(Eredivisie28, 0.975)
