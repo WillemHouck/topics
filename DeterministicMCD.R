@@ -32,9 +32,12 @@ rm(list=ls())
 data(iris)
 load("/Users/Willem/Erasmus/Master/Topics in Advanced Statistics/Eredivisie28.RData")
 rownames(Eredivisie28) <- 1:nrow(Eredivisie28)
+Eredivisie28$MarketValue <- log(Eredivisie28$MarketValue)
 options(scipen=999)
-plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4, col=rgb(0.3,0.5,1,0.4),
-     xlab="Age" , ylab="Market value", xlim = c(15,30) )
+plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4,
+     xlab="Age" , ylab="Log of market value", 
+     xlim = c(10,35), #ylim = c(-1000000,10000000)
+     )
 # ggplot(data = Eredivisie28, aes(x = Age, y = MarketValue)) + 
 #   geom_point() +
 #   theme_ipsum()
@@ -153,7 +156,7 @@ Cstep <- function(H, indices, z, h){
   # indices.all = indices
   # T.hat = T.k
   # S.hat= S.k
-  print(count)
+  print(paste0("#iter of Cstep: ", count))
   return(list(T.k, S.k, indices))
 }
 ## Main function for deterministic MCD algorithm
@@ -193,7 +196,7 @@ covDetMCD <- function(x, alpha, ...) {
   #save raw estimates as (parameters x amount of initial covariances) parameters =(location, scale, indices)
   estimates.raw = list()
   h = h.alpha.n(alpha, n = nrow(z) , p = ncol(z))
-  print(h)
+  print(paste0("#obs for constructing raw estimates (h): ",h))
   
   for (k in 1:length(S)){
     # for each initial cov, calculate the mean and cov for H0
@@ -243,7 +246,7 @@ covDetMCD <- function(x, alpha, ...) {
   
   #compute fisher consistency correction for reweighted variance
   alpha_fisher_new <- sum(w)/nrow(x)
-  c_fisher_new <- alpha_fisher_new/(pgamma(qchisq(alpha_fisher_raw, df=ncol(z))/2,
+  c_fisher_new <- alpha_fisher_new/(pgamma(qchisq(alpha_fisher_new, df=ncol(z))/2,
                                            shape = ncol(z)/2 + 1,
                                            scale = 1))
   S.MCD <- S.MCD * c_fisher_new
@@ -288,13 +291,42 @@ ellipse(mu = output_erediv[[4]], sigma = output_erediv[[5]], alpha = 0.025, newp
 lmDetMCD <- function(x, y, alpha) {
 
   
+  #run covDetMCD and compute regression coefficients
+  y_and_x <- cbind(y,x)
+  MCD_estimates <- covDetMCD(x = y_and_x, alpha = alpha)
+  
+  sigma_xy <- MCD_estimates[[2]][1,2:ncol(y_and_x)]
+  sigma_xx <- MCD_estimates[[2]][2:ncol(y_and_x),2:ncol(y_and_x)]
+  lm_beta <- solve(sigma_xx)%*%sigma_xy
+  
+  mu_y <- MCD_estimates[[1]][1]
+  mu_x <- MCD_estimates[[1]][2:ncol(y_and_x)]
+  lm_alpha <- mu_y - t(mu_x)%*%lm_beta
+  
+  coefficients <- list(lm_alpha, lm_beta)
+  
+  fitted_values <- as.numeric(lm_alpha) + x %*% lm_beta  #geen transform x?
+  residuals <- y - fitted_values
   
 
-  
+  return(list(coefficients,fitted_values,residuals,MCD_estimates))
 }
 
+#Plug in
+output_erediv_lm <- lmDetMCD(x = as.matrix(Eredivisie28$Age), y = as.matrix(Eredivisie28$MarketValue), alpha = 0.75)
+abline(coef = output_erediv_lm[[1]])
+# lmDetMCD(x = as.matrix(iris[,1:3]), y = as.matrix(iris[,4]), alpha = 0.75)
+
+#LTS
+lts_regression <- ltsReg(x = as.matrix(Eredivisie28$Age), y = as.matrix(Eredivisie28$MarketValue), alpha = 0.75)
+abline(coef = lts_regression$coefficients, col = "blue")
+
+#OLS
+ols_regression <- lm(MarketValue ~ Age, Eredivisie28)
+abline(coef = ols_regression$coefficients, col = "green")
 
 
+# Empirical Influence Function --------------------------------------------
 
 
 
