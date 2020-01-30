@@ -22,7 +22,10 @@
 library("robustbase")
 library("ggplot2")
 library("datasets")
-
+library("hrbrthemes")
+# library("ellipse")
+# install.packages("mixtools")
+library("mixtools")
 
 # Preparing data ----------------------------------------------------------
 rm(list=ls())
@@ -32,7 +35,9 @@ rownames(Eredivisie28) <- 1:nrow(Eredivisie28)
 options(scipen=999)
 plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4, col=rgb(0.3,0.5,1,0.4),
      xlab="Age" , ylab="Market value", xlim = c(15,30) )
-
+# ggplot(data = Eredivisie28, aes(x = Age, y = MarketValue)) + 
+#   geom_point() +
+#   theme_ipsum()
 
 
 # Writing functions -------------------------------------------------------
@@ -82,39 +87,40 @@ covBACON1 <- function(z) {
   z.norm = as.matrix(apply(z,1,function(x) sqrt(sum(x**2))))
   indices = (apply(z.norm, 2, order)[ 1:round(length(z.norm)/2, digits= 0), ])
   
-  return (cor(z[c(indices),]))
+  return (cov(z[c(indices),]))
   
 }
 
 # raw OGK estimator of the covariance matrix with median and Qn
 rawCovOGK <- function(z) {
-  # *enter your code here*
-  # Assume z is already scaled properly and columns have 
-  # scale equal to one
-  # Hint: have a look at function covOGK() in package robustbase
-  s = Qn
-  # m <- function(x) {apply(x,2,median)}
-  # d = solve(diag(apply(z,2,s)))
-  # print(d.inv)
-  # print(dim(z), dim(d.inv))
-  # x = z%*%d.inv
-  p = ncol(z)
-  u = matrix(,nrow=p,ncol=p)
-  
-  for (j in 1:p){
-    for (k in 1:p){
-      u[j,k] = .25*(s(z[, j] + z[, k])**2 - s(z[, j] - z[, k])**2)
-    }
-  }
-  E = eigen(u, symmetric = TRUE)$vectors
-  V = z%*%E
-  L = diag(apply(V,2,s)**2)
-  # mu = as.matrix(m(V))
-  epsilon = E%*%L%*%t(E)
-  # mu.raw = D%*%mu
-  # epsilon.raw = d.inv%*%epsilon%*%t(d.inv)
-  return(epsilon)
-  
+  # # *enter your code here*
+  # # Assume z is already scaled properly and columns have 
+  # # scale equal to one
+  # # Hint: have a look at function covOGK() in package robustbase
+  # s = Qn
+  # # m <- function(x) {apply(x,2,median)}
+  # # d = solve(diag(apply(z,2,s)))
+  # # print(d.inv)
+  # # print(dim(z), dim(d.inv))
+  # # x = z%*%d.inv
+  # p = ncol(z)
+  # u = matrix(,nrow=p,ncol=p)
+  # 
+  # for (j in 1:p){
+  #   for (k in 1:p){
+  #     u[j,k] = .25*(s(z[, j] + z[, k])**2 - s(z[, j] - z[, k])**2)
+  #   }
+  # }
+  # E = eigen(u, symmetric = TRUE)$vectors
+  # V = z%*%E
+  # L = diag(apply(V,2,s)**2)
+  # # mu = as.matrix(m(V))
+  # epsilon = E%*%L%*%t(E)
+  # # mu.raw = D%*%mu
+  # # epsilon.raw = d.inv%*%epsilon%*%t(d.inv)
+  # return(epsilon)
+  # 
+  covOGK(z, sigmamu = s_Qn, n.iter = 2)$cov
 }
 
 # rawCovOGK(iris.scale)
@@ -124,15 +130,17 @@ Cstep <- function(H, indices, z, h){
   S.hat = list()
   indices.all = list()
   #initialise
-  T.k = apply(H, 2, mean)
-  S.k = cov(H)
-  T.k1 = T.k
-  S.k1 = S.k
+  T.k = NA
+  S.k = NA
+  T.k1 = apply(H, 2, mean)
+  S.k1 = cov(H)
   indices.1 = indices
-  while (identical(T.k, T.k1) & identical(S.k, S.k1)){
+  count = 0
+  while (!identical(S.k, S.k1)){
     #set previous values to next values such that when while loop is exited, the old values are returned.
     T.k = T.k1
     S.k = S.k1
+    # print(S.k)
     indices = indices.1
     #calculate distance for all observations, and get h smallest
     d = as.matrix(sqrt(mahalanobis(z,T.k,S.k)))
@@ -140,11 +148,12 @@ Cstep <- function(H, indices, z, h){
     H = z[indices.1, ]
     S.k1 = cov(H)
     T.k1 = apply(H, 2, mean)
-    
+    count = count + 1
   }
   # indices.all = indices
   # T.hat = T.k
   # S.hat= S.k
+  print(count)
   return(list(T.k, S.k, indices))
 }
 ## Main function for deterministic MCD algorithm
@@ -175,7 +184,7 @@ covDetMCD <- function(x, alpha, ...) {
   # subset size.
   x = as.matrix(x)
   #scale x based on coordinate wise median and Qn from robustbase package
-  z =  sweep(sweep(x,2, apply(x, 2,median),FUN='-'),2,apply(x,2,Qn),FUN = '/')
+  z =  sweep(sweep(x,2, apply(x, 2,median),FUN='-'),2,apply(x,2,Qn),FUN = '/') #to make the estimators equivariant
   S = list(corHT(z), corSpearman(z), corNSR(z), covMSS(z), covBACON1(z), rawCovOGK(z)   )
   # eps.hat = list()
   # mu.hat = list()
@@ -210,11 +219,13 @@ covDetMCD <- function(x, alpha, ...) {
     covs[[k]] = estimates.raw[[k]][[2]]
     
   }
+  
   #select estimator for which the determinent of the raw covariance is smallest and obtain raw estimates
   bestk= which.min(lapply(covs, det))
   T.raw = estimates.raw[[bestk]][[1]]
   S.raw = estimates.raw[[bestk]][[2]]
   indices.raw = estimates.raw[[bestk]][[3]]
+  
   #Use raw MCD to detect outliers, and compute reweighted MCD
   quant = qchisq(.975, df=ncol(z))
   d = as.matrix((mahalanobis(z,T.raw,S.raw)))
@@ -223,11 +234,24 @@ covDetMCD <- function(x, alpha, ...) {
   z.weight = z.weight[as.logical(rowSums(z.weight != 0)), ]
   T.MCD = apply(z.weight,2,mean)
   S.MCD = cov(z.weight)
-  return(list(T.MCD, S.MCD, w, T.raw, S.raw, indices.raw))
+
+  #transform from equivariant z back to x
+  T.MCD.x <- T.MCD * apply(x, 2,Qn) + apply(x, 2,median)
+  S.MCD.x <- sweep(sweep(S.MCD,2,t(apply(x,2,Qn)),FUN='*'),1,apply(x,2,Qn),FUN = '*')
+  T.raw.x <- T.raw * apply(x, 2,Qn) + apply(x, 2,median)
+  S.raw.x <- sweep(sweep(S.raw,2,t(apply(x,2,Qn)),FUN='*'),1,apply(x,2,Qn),FUN = '*')
+  
+  return(list(T.MCD.x, S.MCD.x, w, T.raw.x, S.raw.x, indices.raw))
 }
 
-output_iris <- covDetMCD(iris[-5], 0.975)
-output_erediv <- covDetMCD(Eredivisie28, 0.975)
+output_iris <- covDetMCD(iris[-5], 0.75)
+output_erediv <- covDetMCD(Eredivisie28, 0.75)
+
+
+output_covmcd_erediv <- covMcd(Eredivisie28, alpha = 0.75, nsamp = "deterministic")
+
+ellipse(mu = output_erediv[[1]], sigma = output_erediv[[2]], alpha = 0.025, newplot = F)
+ellipse(mu = output_erediv[[4]], sigma = output_erediv[[5]], alpha = 0.025, newplot = F, col = "red",lty  = "dashed")
 
 ## Function for regression based on the deterministic MCD
 
@@ -248,12 +272,16 @@ output_erediv <- covDetMCD(Eredivisie28, 0.975)
 #                   function covDetMCD())
 # any other output you want to return
 
-lmDetMCD <- function(x, y, alpha, ...) {
+lmDetMCD <- function(x, y, alpha) {
 
-  
-  
   
   
 
   
 }
+
+
+
+
+
+
