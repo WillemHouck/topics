@@ -220,10 +220,16 @@ covDetMCD <- function(x, alpha, ...) {
     
   }
   
+  #compute fisher consistency correction for raw variance
+  alpha_fisher_raw <- h/nrow(x)
+  c_fisher_raw <- alpha_fisher_raw/(pgamma(qchisq(alpha_fisher_raw, df=ncol(z))/2,
+                            shape = ncol(z)/2 + 1,
+                            scale = 1))
+  
   #select estimator for which the determinent of the raw covariance is smallest and obtain raw estimates
   bestk= which.min(lapply(covs, det))
   T.raw = estimates.raw[[bestk]][[1]]
-  S.raw = estimates.raw[[bestk]][[2]]
+  S.raw = estimates.raw[[bestk]][[2]] * c_fisher_raw
   indices.raw = estimates.raw[[bestk]][[3]]
   
   #Use raw MCD to detect outliers, and compute reweighted MCD
@@ -234,6 +240,13 @@ covDetMCD <- function(x, alpha, ...) {
   z.weight = z.weight[as.logical(rowSums(z.weight != 0)), ]
   T.MCD = apply(z.weight,2,mean)
   S.MCD = cov(z.weight)
+  
+  #compute fisher consistency correction for reweighted variance
+  alpha_fisher_new <- sum(w)/nrow(x)
+  c_fisher_new <- alpha_fisher_new/(pgamma(qchisq(alpha_fisher_raw, df=ncol(z))/2,
+                                           shape = ncol(z)/2 + 1,
+                                           scale = 1))
+  S.MCD <- S.MCD * c_fisher_new
 
   #transform from equivariant z back to x
   T.MCD.x <- T.MCD * apply(x, 2,Qn) + apply(x, 2,median)
