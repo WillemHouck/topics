@@ -22,17 +22,25 @@
 library("robustbase")
 library("ggplot2")
 library("datasets")
-
+library("hrbrthemes")
+# library("ellipse")
+# install.packages("mixtools")
+library("mixtools")
 
 # Preparing data ----------------------------------------------------------
 rm(list=ls())
 data(iris)
 load("/Users/Willem/Erasmus/Master/Topics in Advanced Statistics/Eredivisie28.RData")
 rownames(Eredivisie28) <- 1:nrow(Eredivisie28)
+Eredivisie28$MarketValue <- log(Eredivisie28$MarketValue)
 options(scipen=999)
-plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4, col=rgb(0.3,0.5,1,0.4),
-     xlab="Age" , ylab="Market value", xlim = c(15,30) )
-
+plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4,
+     xlab="Age" , ylab="Log of market value", 
+     xlim = c(10,35), #ylim = c(-1000000,10000000)
+     )
+# ggplot(data = Eredivisie28, aes(x = Age, y = MarketValue)) + 
+#   geom_point() +
+#   theme_ipsum()
 
 
 # Writing functions -------------------------------------------------------
@@ -82,39 +90,40 @@ covBACON1 <- function(z) {
   z.norm = as.matrix(apply(z,1,function(x) sqrt(sum(x**2))))
   indices = (apply(z.norm, 2, order)[ 1:round(length(z.norm)/2, digits= 0), ])
   
-  return (cor(z[c(indices),]))
+  return (cov(z[c(indices),]))
   
 }
 
 # raw OGK estimator of the covariance matrix with median and Qn
 rawCovOGK <- function(z) {
-  # *enter your code here*
-  # Assume z is already scaled properly and columns have 
-  # scale equal to one
-  # Hint: have a look at function covOGK() in package robustbase
-  s = Qn
-  # m <- function(x) {apply(x,2,median)}
-  # d = solve(diag(apply(z,2,s)))
-  # print(d.inv)
-  # print(dim(z), dim(d.inv))
-  # x = z%*%d.inv
-  p = ncol(z)
-  u = matrix(,nrow=p,ncol=p)
-  
-  for (j in 1:p){
-    for (k in 1:p){
-      u[j,k] = .25*(s(z[, j] + z[, k])**2 - s(z[, j] - z[, k])**2)
-    }
-  }
-  E = eigen(u, symmetric = TRUE)$vectors
-  V = z%*%E
-  L = diag(apply(V,2,s)**2)
-  # mu = as.matrix(m(V))
-  epsilon = E%*%L%*%t(E)
-  # mu.raw = D%*%mu
-  # epsilon.raw = d.inv%*%epsilon%*%t(d.inv)
-  return(epsilon)
-  
+  # # *enter your code here*
+  # # Assume z is already scaled properly and columns have 
+  # # scale equal to one
+  # # Hint: have a look at function covOGK() in package robustbase
+  # s = Qn
+  # # m <- function(x) {apply(x,2,median)}
+  # # d = solve(diag(apply(z,2,s)))
+  # # print(d.inv)
+  # # print(dim(z), dim(d.inv))
+  # # x = z%*%d.inv
+  # p = ncol(z)
+  # u = matrix(,nrow=p,ncol=p)
+  # 
+  # for (j in 1:p){
+  #   for (k in 1:p){
+  #     u[j,k] = .25*(s(z[, j] + z[, k])**2 - s(z[, j] - z[, k])**2)
+  #   }
+  # }
+  # E = eigen(u, symmetric = TRUE)$vectors
+  # V = z%*%E
+  # L = diag(apply(V,2,s)**2)
+  # # mu = as.matrix(m(V))
+  # epsilon = E%*%L%*%t(E)
+  # # mu.raw = D%*%mu
+  # # epsilon.raw = d.inv%*%epsilon%*%t(d.inv)
+  # return(epsilon)
+  # 
+  covOGK(z, sigmamu = s_Qn, n.iter = 2)$cov
 }
 
 # rawCovOGK(iris.scale)
@@ -124,18 +133,18 @@ Cstep <- function(H, indices, z, h){
   S.hat = list()
   indices.all = list()
   #initialise
-  T.k = apply(H, 2, mean)
-  S.k = cov(H)
-  T.k1 = T.k
-  S.k1 = S.k
+  T.k = NA
+  S.k = NA
+  T.k1 = apply(H, 2, mean)
+  S.k1 = cov(H)
   indices.1 = indices
-  i = 0
-  epsilon = 0.001
-  while ((((sum(T.k - T.k1) <= epsilon) & (sum(S.k - S.k1)) <= epsilon) ) & (i<= 100) ){
+  count = 0
+  while (!identical(S.k, S.k1)){
     #set previous values to next values such that when while loop is exited, the old values are returned.
     i = i + 1
     T.k = T.k1
     S.k = S.k1
+    # print(S.k)
     indices = indices.1
     #calculate distance for all observations, and get h smallest
     d = as.matrix(sqrt(mahalanobis(z,T.k,S.k)))
@@ -143,11 +152,13 @@ Cstep <- function(H, indices, z, h){
     H = z[indices.1, ]
     S.k1 = cov(H)
     T.k1 = apply(H, 2, mean)
+    count = count + 1
   }
   print(S.k)
   # indices.all = indices
   # T.hat = T.k
   # S.hat= S.k
+  print(paste0("#iter of Cstep: ", count))
   return(list(T.k, S.k, indices))
 }
 ## Main function for deterministic MCD algorithm
@@ -178,7 +189,7 @@ covDetMCD <- function(x, alpha, ...) {
   # subset size.
   x = as.matrix(x)
   #scale x based on coordinate wise median and Qn from robustbase package
-  z =  sweep(sweep(x,2, apply(x, 2,median),FUN='-'),2,apply(x,2,Qn),FUN = '/')
+  z =  sweep(sweep(x,2, apply(x, 2,median),FUN='-'),2,apply(x,2,Qn),FUN = '/') #to make the estimators equivariant
   S = list(corHT(z), corSpearman(z), corNSR(z), covMSS(z), covBACON1(z), rawCovOGK(z)   )
   # eps.hat = list()
   # mu.hat = list()
@@ -187,7 +198,7 @@ covDetMCD <- function(x, alpha, ...) {
   #save raw estimates as (parameters x amount of initial covariances) parameters =(location, scale, indices)
   estimates.raw = list()
   h = h.alpha.n(alpha, n = nrow(z) , p = ncol(z))
-  print(h)
+  print(paste0("#obs for constructing raw estimates (h): ",h))
   
   for (k in 1:length(S)){
     # for each initial cov, calculate the mean and cov for H0
@@ -203,29 +214,30 @@ covDetMCD <- function(x, alpha, ...) {
     
     #construct distances based on estimate k, select smallest h0 = n/2 and based on these observations
     #calculate d.k*. Then select subsets size h and input in Cstep
-<<<<<<< Updated upstream
-    d.k = as.matrix(sqrt(mahalanobis(z, mu.k,eps.k)))
-    indices = (apply(d.k, 2, order)[ 1:round(nrow(z)/2,digits = 0), ])
-    H0 = z[indices, ]
-    d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cov(H0))))
-    indices.star =  (apply(d.k.star, 2, order)[ 1:h, ])
-=======
+
     d.0 = as.matrix(sqrt(mahalanobis(z, mu.k,eps.k)))
     indices = (apply(d.0, 2, order)[ 1:h, ])
     # H0 = z[indices, ]
     # d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cov(H0))))
     # indices.star =  (apply(d.k.star, 2, order)[ 1:h, ])
->>>>>>> Stashed changes
-    
+
     estimates.raw[[k]] = Cstep(z[indices, ], indices, z, h)
     covs[[k]] = estimates.raw[[k]][[2]]
     
   }
+  
+  #compute fisher consistency correction for raw variance
+  alpha_fisher_raw <- h/nrow(x)
+  c_fisher_raw <- alpha_fisher_raw/(pgamma(qchisq(alpha_fisher_raw, df=ncol(z))/2,
+                            shape = ncol(z)/2 + 1,
+                            scale = 1))
+  
   #select estimator for which the determinent of the raw covariance is smallest and obtain raw estimates
   bestk= which.min(lapply(covs, det))
   T.raw = estimates.raw[[bestk]][[1]]
-  S.raw = estimates.raw[[bestk]][[2]]
+  S.raw = estimates.raw[[bestk]][[2]] * c_fisher_raw
   indices.raw = estimates.raw[[bestk]][[3]]
+  
   #Use raw MCD to detect outliers, and compute reweighted MCD
   quant = qchisq(.975, df=ncol(z))
   d = as.matrix((mahalanobis(z,T.raw,S.raw)))
@@ -234,15 +246,33 @@ covDetMCD <- function(x, alpha, ...) {
   z.weight = z.weight[as.logical(rowSums(z.weight != 0)), ]
   T.MCD = apply(z.weight,2,mean)
   S.MCD = cov(z.weight)
-  return(list(T.MCD, S.MCD, w, T.raw, S.raw, indices.raw))
-}
-<<<<<<< Updated upstream
-=======
-output_E = covDetMCD(Eredivisie28, 0.975)
->>>>>>> Stashed changes
+  
+  #compute fisher consistency correction for reweighted variance
+  alpha_fisher_new <- sum(w)/nrow(x)
+  c_fisher_new <- alpha_fisher_new/(pgamma(qchisq(alpha_fisher_new, df=ncol(z))/2,
+                                           shape = ncol(z)/2 + 1,
+                                           scale = 1))
+  S.MCD <- S.MCD * c_fisher_new
 
-output_iris <- covDetMCD(iris[-5], 0.975)
-output_erediv <- covDetMCD(Eredivisie28, 0.975)
+  #transform from equivariant z back to x
+  T.MCD.x <- T.MCD * apply(x, 2,Qn) + apply(x, 2,median)
+  S.MCD.x <- sweep(sweep(S.MCD,2,t(apply(x,2,Qn)),FUN='*'),1,apply(x,2,Qn),FUN = '*')
+  T.raw.x <- T.raw * apply(x, 2,Qn) + apply(x, 2,median)
+  S.raw.x <- sweep(sweep(S.raw,2,t(apply(x,2,Qn)),FUN='*'),1,apply(x,2,Qn),FUN = '*')
+  
+  return(list(T.MCD.x, S.MCD.x, w, T.raw.x, S.raw.x, indices.raw))
+}
+
+output_E = covDetMCD(Eredivisie28, 0.975)
+
+output_iris <- covDetMCD(iris[-5], 0.75)
+output_erediv <- covDetMCD(Eredivisie28, 0.75)
+
+
+output_covmcd_erediv <- covMcd(Eredivisie28, alpha = 0.75, nsamp = "deterministic")
+
+ellipse(mu = output_erediv[[1]], sigma = output_erediv[[2]], alpha = 0.025, newplot = F)
+ellipse(mu = output_erediv[[4]], sigma = output_erediv[[5]], alpha = 0.025, newplot = F, col = "red",lty  = "dashed")
 
 ## Function for regression based on the deterministic MCD
 
@@ -263,12 +293,45 @@ output_erediv <- covDetMCD(Eredivisie28, 0.975)
 #                   function covDetMCD())
 # any other output you want to return
 
-lmDetMCD <- function(x, y, alpha, ...) {
+lmDetMCD <- function(x, y, alpha) {
 
   
+  #run covDetMCD and compute regression coefficients
+  y_and_x <- cbind(y,x)
+  MCD_estimates <- covDetMCD(x = y_and_x, alpha = alpha)
   
+  sigma_xy <- MCD_estimates[[2]][1,2:ncol(y_and_x)]
+  sigma_xx <- MCD_estimates[[2]][2:ncol(y_and_x),2:ncol(y_and_x)]
+  lm_beta <- solve(sigma_xx)%*%sigma_xy
   
+  mu_y <- MCD_estimates[[1]][1]
+  mu_x <- MCD_estimates[[1]][2:ncol(y_and_x)]
+  lm_alpha <- mu_y - t(mu_x)%*%lm_beta
+  
+  coefficients <- list(lm_alpha, lm_beta)
+  
+  fitted_values <- as.numeric(lm_alpha) + x %*% lm_beta  #geen transform x?
+  residuals <- y - fitted_values
   
 
-  
+  return(list(coefficients,fitted_values,residuals,MCD_estimates))
 }
+
+#Plug in
+output_erediv_lm <- lmDetMCD(x = as.matrix(Eredivisie28$Age), y = as.matrix(Eredivisie28$MarketValue), alpha = 0.75)
+abline(coef = output_erediv_lm[[1]])
+# lmDetMCD(x = as.matrix(iris[,1:3]), y = as.matrix(iris[,4]), alpha = 0.75)
+
+#LTS
+lts_regression <- ltsReg(x = as.matrix(Eredivisie28$Age), y = as.matrix(Eredivisie28$MarketValue), alpha = 0.75)
+abline(coef = lts_regression$coefficients, col = "blue")
+
+#OLS
+ols_regression <- lm(MarketValue ~ Age, Eredivisie28)
+abline(coef = ols_regression$coefficients, col = "green")
+
+
+# Empirical Influence Function --------------------------------------------
+
+
+
