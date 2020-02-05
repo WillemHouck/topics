@@ -30,7 +30,7 @@ library("mixtools")
 # Preparing data ----------------------------------------------------------
 rm(list=ls())
 data(iris)
-load("/Users/Willem/Erasmus/Master/Topics in Advanced Statistics/Eredivisie28.RData")
+load("Eredivisie28.RData")
 rownames(Eredivisie28) <- 1:nrow(Eredivisie28)
 Eredivisie28$MarketValue <- log(Eredivisie28$MarketValue)
 options(scipen=999)
@@ -141,7 +141,6 @@ Cstep <- function(H, indices, z, h){
   count = 0
   while (!identical(S.k, S.k1)){
     #set previous values to next values such that when while loop is exited, the old values are returned.
-    i = i + 1
     T.k = T.k1
     S.k = S.k1
     # print(S.k)
