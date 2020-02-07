@@ -26,6 +26,7 @@ library("hrbrthemes")
 # library("ellipse")
 # install.packages("mixtools")
 library("mixtools")
+library("rgl")
 
 # Preparing data ----------------------------------------------------------
 rm(list=ls())
@@ -270,8 +271,8 @@ output_erediv <- covDetMCD(Eredivisie28, 0.75)
 
 output_covmcd_erediv <- covMcd(Eredivisie28, alpha = 0.75, nsamp = "deterministic")
 
-ellipse(mu = output_erediv[[1]], sigma = output_erediv[[2]], alpha = 0.025, newplot = F)
 ellipse(mu = output_erediv[[4]], sigma = output_erediv[[5]], alpha = 0.025, newplot = F, col = "red",lty  = "dashed")
+ellipse(mu = output_erediv[[1]], sigma = output_erediv[[2]], alpha = 0.025, newplot = F)
 
 ## Function for regression based on the deterministic MCD
 
@@ -331,6 +332,38 @@ abline(coef = ols_regression$coefficients, col = "green")
 
 
 # Empirical Influence Function --------------------------------------------
+
+data <- Eredivisie28
+observation_to_change <- sample(1:nrow(data), size = 1) #value to be changed
+
+x <- seq(from = min(data[,1])-2,to = max(data[,1])+2,by = 1)
+y <- seq(from = min(floor(data[,2]))-2,to = max(floor(data[,2]))+2,by = 1)
+
+EIF_intercept <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y)))
+EIF_slope <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y)))
+  
+for(i in 1:length(x)){
+  adjusted_age <- Eredivisie28$Age
+  adjusted_age[observation_to_change] <- x[i]
+  for(j in 1:length(y)){
+    
+    adjusted_value <- Eredivisie28$MarketValue
+    adjusted_value[observation_to_change] <- y[j]
+    
+    temporary_output <- lmDetMCD(x = adjusted_age,y = adjusted_value,alpha = 0.75)[[1]]
+    
+    EIF_intercept[i,j] <- nrow(Eredivisie28) * (temporary_output[[1]] - output_erediv_lm[[1]][[1]])
+    EIF_slope[i,j] <- nrow(Eredivisie28) * (temporary_output[[2]] - output_erediv_lm[[1]][[2]])
+    
+     
+  }
+}
+  
+persp3D(z = as.matrix(EIF_slope), theta = 120)
+  
+  
+  
+
 
 
 
