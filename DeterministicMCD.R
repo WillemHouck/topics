@@ -19,14 +19,16 @@
 # install.packages("robustbase")
 # install.packages("ggplot2")
 
+library("MASS")
 library("robustbase")
 library("ggplot2")
 library("datasets")
 library("hrbrthemes")
-# library("ellipse")
 # install.packages("mixtools")
 library("mixtools")
 library("rgl")
+# install.packages("plotly")
+library('plotly')
 
 # Preparing data ----------------------------------------------------------
 rm(list=ls())
@@ -35,10 +37,22 @@ load("Eredivisie28.RData")
 rownames(Eredivisie28) <- 1:nrow(Eredivisie28)
 Eredivisie28$MarketValue <- log(Eredivisie28$MarketValue)
 options(scipen=999)
+
+#normal plots
+par(mfrow=c(1,2))
+fit_age <- fitdistr(Eredivisie28$Age, densfun="normal")
+hist(Eredivisie28$Age, prob=TRUE, main="", xlim = c(10,35), xlab = "Age")
+curve(dnorm(x, fit_age$estimate[1], fit_age$estimate[2]), col="red", lwd=2, add=T)
+
+fit_MV <- fitdistr(Eredivisie28$MarketValue, densfun="normal")
+hist(Eredivisie28$MarketValue, prob=TRUE, main="", xlab = "log of MarketValue", xlim = c(10,18))
+curve(dnorm(x, fit_MV$estimate[1], fit_MV$estimate[2]), col="red", lwd=2, add=T)
+
+par(mfrow=c(1,1))
 plot(x = Eredivisie28$Age, y = Eredivisie28$MarketValue, pch=20, cex=0.4,
-     xlab="Age" , ylab="Log of market value", 
+     xlab="Age" , ylab="log of MarketValue", 
      xlim = c(10,35), #ylim = c(-1000000,10000000)
-     )
+)
 # ggplot(data = Eredivisie28, aes(x = Age, y = MarketValue)) + 
 #   geom_point() +
 #   theme_ipsum()
@@ -214,13 +228,13 @@ covDetMCD <- function(x, alpha, ...) {
     
     #construct distances based on estimate k, select smallest h0 = n/2 and based on these observations
     #calculate d.k*. Then select subsets size h and input in Cstep
-
+    
     d.0 = as.matrix(sqrt(mahalanobis(z, mu.k,eps.k)))
     indices = (apply(d.0, 2, order)[ 1:h, ])
     # H0 = z[indices, ]
     # d.k.star = as.matrix(sqrt(mahalanobis(z, apply(H0, 2, mean),cov(H0))))
     # indices.star =  (apply(d.k.star, 2, order)[ 1:h, ])
-
+    
     estimates.raw[[k]] = Cstep(z[indices, ], indices, z, h)
     covs[[k]] = estimates.raw[[k]][[2]]
     
@@ -229,8 +243,8 @@ covDetMCD <- function(x, alpha, ...) {
   #compute fisher consistency correction for raw variance
   alpha_fisher_raw <- h/nrow(x)
   c_fisher_raw <- alpha_fisher_raw/(pgamma(qchisq(alpha_fisher_raw, df=ncol(z))/2,
-                            shape = ncol(z)/2 + 1,
-                            scale = 1))
+                                           shape = ncol(z)/2 + 1,
+                                           scale = 1))
   
   #select estimator for which the determinent of the raw covariance is smallest and obtain raw estimates
   bestk= which.min(lapply(covs, det))
@@ -253,7 +267,7 @@ covDetMCD <- function(x, alpha, ...) {
                                            shape = ncol(z)/2 + 1,
                                            scale = 1))
   S.MCD <- S.MCD * c_fisher_new
-
+  
   #transform from equivariant z back to x
   T.MCD.x <- T.MCD * apply(x, 2,Qn) + apply(x, 2,median)
   S.MCD.x <- sweep(sweep(S.MCD,2,t(apply(x,2,Qn)),FUN='*'),1,apply(x,2,Qn),FUN = '*')
@@ -294,7 +308,7 @@ ellipse(mu = output_erediv[[1]], sigma = output_erediv[[2]], alpha = 0.025, newp
 # any other output you want to return
 
 lmDetMCD <- function(x, y, alpha) {
-
+  
   
   #run covDetMCD and compute regression coefficients
   y_and_x <- cbind(y,x)
@@ -313,13 +327,13 @@ lmDetMCD <- function(x, y, alpha) {
   fitted_values <- as.numeric(lm_alpha) + x %*% lm_beta  #geen transform x?
   residuals <- y - fitted_values
   
-
+  
   return(list(coefficients,fitted_values,residuals,MCD_estimates))
 }
 
 #Plug in
 output_erediv_lm <- lmDetMCD(x = as.matrix(Eredivisie28$Age), y = as.matrix(Eredivisie28$MarketValue), alpha = 0.75)
-abline(coef = output_erediv_lm[[1]])
+abline(coef = output_erediv_lm[[1]], col = "orange")
 # lmDetMCD(x = as.matrix(iris[,1:3]), y = as.matrix(iris[,4]), alpha = 0.75)
 
 #LTS
@@ -327,42 +341,97 @@ lts_regression <- ltsReg(x = as.matrix(Eredivisie28$Age), y = as.matrix(Eredivis
 abline(coef = lts_regression$coefficients, col = "blue")
 
 #OLS
-ols_regression <- lm(MarketValue ~ Age, Eredivisie28)
+ols_regression <- lm(Eredivisie28$MarketValue ~ Eredivisie28$Age)
 abline(coef = ols_regression$coefficients, col = "green")
+
+legend("topleft", legend = c("plug-in","lts","ols","reweighted","raw"), col = c("orange", "blue", "green","black","red"), lty = c(1,1,1,1,2), cex = 0.8)
 
 
 # Empirical Influence Function --------------------------------------------
+#plug in
 
-data <- Eredivisie28
-observation_to_change <- sample(1:nrow(data), size = 1) #value to be changed
-
-x <- seq(from = min(data[,1])-2,to = max(data[,1])+2,by = 1)
-y <- seq(from = min(floor(data[,2]))-2,to = max(floor(data[,2]))+2,by = 1)
-
-EIF_intercept <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y)))
-EIF_slope <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y)))
+calculate_EIF <- function(data){ #not a general function
+  observation_to_change <- sample(1:nrow(data), size = 1) #value to be changed
   
-for(i in 1:length(x)){
-  adjusted_age <- Eredivisie28$Age
-  adjusted_age[observation_to_change] <- x[i]
-  for(j in 1:length(y)){
-    
-    adjusted_value <- Eredivisie28$MarketValue
-    adjusted_value[observation_to_change] <- y[j]
-    
-    temporary_output <- lmDetMCD(x = adjusted_age,y = adjusted_value,alpha = 0.75)[[1]]
-    
-    EIF_intercept[i,j] <- nrow(Eredivisie28) * (temporary_output[[1]] - output_erediv_lm[[1]][[1]])
-    EIF_slope[i,j] <- nrow(Eredivisie28) * (temporary_output[[2]] - output_erediv_lm[[1]][[2]])
-    
-     
+  x <- seq(from = min(data[,1])-2,to = max(data[,1])+2,by = 1)
+  y <- seq(from = min(floor(data[,2]))-2,to = max(floor(data[,2]))+2,by = 1)
+  
+  # x <- seq(from = )
+  
+  plug_in_EIF_intercept <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
+  plug_in_EIF_slope <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
+  
+  lts_EIF_intercept <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
+  lts_EIF_slope <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
+  
+  ols_EIF_intercept <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
+  ols_EIF_slope <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
+  
+  
+  for(i in 1:length(x)){
+    adjusted_age <- Eredivisie28$Age
+    adjusted_age[observation_to_change] <- x[i]
+    for(j in 1:length(y)){
+      
+      adjusted_value <- Eredivisie28$MarketValue
+      adjusted_value[observation_to_change] <- y[j]
+      
+      plug_in_temporary_output <- lmDetMCD(x = adjusted_age,y = adjusted_value,alpha = 0.75)[[1]]
+      plug_in_EIF_intercept[i,j] <- nrow(Eredivisie28) * (plug_in_temporary_output[[1]] - output_erediv_lm[[1]][[1]])
+      plug_in_EIF_slope[i,j] <- nrow(Eredivisie28) * (plug_in_temporary_output[[2]] - output_erediv_lm[[1]][[2]])
+      
+      lts_temporary_output <- ltsReg(x = adjusted_age, y = adjusted_value, alpha = 0.75)
+      lts_EIF_intercept[i,j] <- nrow(Eredivisie28) * (lts_temporary_output$coefficients[[1]] -lts_regression$coefficients[[1]])
+      lts_EIF_slope[i,j] <- nrow(Eredivisie28) * (lts_temporary_output$coefficients[[2]] - lts_regression$coefficients[[2]])
+      
+      ols_temporary_output <- lm(adjusted_value ~ adjusted_age)
+      ols_EIF_intercept[i,j] <- nrow(Eredivisie28) * (ols_temporary_output$coefficients[[1]] - ols_regression$coefficients[[1]])
+      ols_EIF_slope[i,j] <- nrow(Eredivisie28) * (ols_temporary_output$coefficients[[2]] - ols_regression$coefficients[[2]])
+    }
   }
-}
-  
-persp3D(z = as.matrix(EIF_slope), theta = 120)
-  
-  
-  
+  return(list(plug_in_EIF_intercept, plug_in_EIF_slope, lts_EIF_intercept, lts_EIF_slope, ols_EIF_intercept, ols_EIF_slope))
+} 
+
+EIF_results <- calculate_EIF(Eredivisie28)
+
+
+
+p1 <- plot_ly(z = as.matrix(EIF_results[[1]])) %>% 
+  add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
+                      xaxis = list(title = "Age"),
+                      yaxis = list(title = "MarketValue")))
+
+p2 <- plot_ly(z = as.matrix(EIF_results[[2]])) %>% 
+  add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+
+p3 <- plot_ly(z = as.matrix(EIF_results[[3]]))%>% 
+  add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+
+p4 <- plot_ly(z = as.matrix(EIF_results[[4]]))%>% 
+  add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+
+p5 <- plot_ly(z = as.matrix(EIF_results[[5]])) %>% 
+  add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+
+p6 <- plot_ly(z = as.matrix(EIF_results[[6]])) %>% 
+  add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+
+
+
+
+
+
+
+
+
+
+
 
 
 
