@@ -423,16 +423,28 @@ p6 <- plot_ly(z = as.matrix(EIF_results[[6]])) %>%
   layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
 
 
+# Simulation Study --------------------------------------------
+
+generateData <- function(n, p, corr){
+  #Generate clean data
+  clean_data = rmvnorm(n, sigma = diag(1,p), mean = rep(0, p))
+  
+  #apply transformation to correlate the data
+  G = matrix(corr, p, p)
+  diag(G) = 1
+  
+  clean_data = apply(clean_data,2, function(row) G%*%row)
+  
+  return(clean_data)
+}
 
 
+data = generateData(5,2,0.75)
 
+data
 
+plot(x = data[,1], y = data[,2])
 
-
-
-
-
-
-
+set.seed(123)
 
 
