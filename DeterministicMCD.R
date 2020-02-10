@@ -439,64 +439,85 @@ p6 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[6]])) %>%
 
 
 # Simulation Study --------------------------------------------
+
+
+
+
+
+simulate_set <- function(n, gl, bl, vo, alpha = 0.75, plot = FALSE, legend = FALSE) {
+  #amount of x and y variables
+  p = 1
+  q = 1
+  
+  #determine amount of observations per type
+  n_clean = round(n * (1-bl-vo-gl))
+  n_gl = round(n * gl)
+  n_bl = round(n * bl)
+  n_vo = round(n * vo)
+  
+  #generate clean data
+  clean = rmvnorm(n_clean, sigma = diag(1,p+q))
+  
+  
+  #generate good leverage points
+  if (n_gl > 0) {
+    gl_mu = 2*sqrt(qchisq(.99, df=p+q))
+    gl_y = rmvnorm(n_gl, sigma = diag(1,q))
+    gl_x = rmvnorm(n_gl, mean=rep(gl_mu, p), sigma = diag(0.1,p))
+    gl = cbind(gl_y, gl_x)
+  } else {
+    gl = NULL
+  }
+  
+  #generate bad leverage points
+  if (n_bl > 0) {
+  bl_mu_x = 2*sqrt(qchisq(.99, df=p))
+  bl_mu_y = 2*sqrt(qchisq(.99, df=q))
+  
+  bl_x = rmvnorm(n_bl, mean=rep(bl_mu_x, p), sigma = diag(0.1,p))
+  bl_y = rmvnorm(n_bl, mean=rep(bl_mu_y, q), sigma = diag(0.1,q))
+  
+  bl = cbind(bl_y, bl_x)
+  } else {
+    bl = NULL
+  }
+  
+  #generate vertical outliers
+  if (n_vo > 0) {
+  vo_mu = 2*sqrt(qchisq(.99, df=p+q))
+  vo_y = rmvnorm(n_vo, mean=rep(vo_mu, q), sigma = diag(0.1,q))
+  vo_x = rmvnorm(n_vo, sigma = diag(1,p))
+  vo = cbind(vo_y, vo_x)
+  } else {
+    vo = NULL
+  }
+  
+  #combine the data
+  data = rbind(clean, bl, vo, gl)
+  y = data[,1:q]
+  x = data[,(q+1):(p+q)]
+  
+  #fit the data
+  plug_in_regression <- lmDetMCD(x = x, y = y, alpha = alpha)
+  lts_regression <- ltsReg(x = x, y = y, alpha = alpha)
+  ols_regression <- lm(y ~ x)
+  
+  if(plot == TRUE) {
+    plot(x = x , y = y)
+  
+    detMcd <- covDetMCD(data, alpha)
+    
+    ellipse(mu = detMcd[[4]], sigma = detMcd[[5]], alpha = 0.025, newplot = F, col = "red",lty  = "dashed")
+    ellipse(mu = detMcd[[1]], sigma = detMcd[[2]], alpha = 0.025, newplot = F)
+    abline(coef = plug_in_regression[[1]], col = "orange")
+    abline(coef = lts_regression$coefficients, col = "blue")
+    abline(coef = ols_regression$coefficients, col = "green")
+    
+    if(legend == TRUE){
+    legend("topleft", legend = c("plug-in","lts","ols","reweighted","raw"), col = c("orange", "blue", "green","black","red"), lty = c(1,1,1,1,2), cex = 0.8)
+    }
+  }
+}
+
+simulate_set(1000, gl = 0.2, bl=0, vo=0, plot = TRUE)
 set.seed(123)
-
-n = 1000
-p = 1
-q = 1
-plot=TRUE
-
-#proportions of bad leverage points and vertical outliers
-gl = 0.1
-bl = 0.1
-vo = 0.1
-
-#determine amount of observations per type
-n_clean = round(n * (1-bl-vo-gl))
-n_gl = round(n * gl)
-n_bl = round(n * bl)
-n_vo = round(n * vo)
-
-#generate clean data
-clean = rmvnorm(n_clean, sigma = diag(1,p+q))
-
-
-#generate good leverage points
-if (n_gl > 0) {
-  gl_mu = 2*sqrt(qchisq(.99, df=p+q))
-  gl_y = rmvnorm(n_gl, sigma = diag(1,q))
-  gl_x = rmvnorm(n_gl, mean=rep(gl_mu, p), sigma = diag(0.1,p))
-  gl = cbind(gl_y, gl_x)
-} else {
-  gl = NULL
-}
-
-#generate bad leverage points
-if (n_bl > 0) {
-bl_mu_x = 2*sqrt(qchisq(.99, df=p))
-bl_mu_y = 2*sqrt(qchisq(.99, df=q))
-
-bl_x = rmvnorm(n_bl, mean=rep(bl_mu_x, p), sigma = diag(0.1,p))
-bl_y = rmvnorm(n_bl, mean=rep(bl_mu_y, q), sigma = diag(0.1,q))
-
-bl = cbind(bl_y, bl_x)
-} else {
-  bl = NULL
-}
-
-#generate vertical outliers
-if (n_vo > 0) {
-vo_mu = 2*sqrt(qchisq(.99, df=p+q))
-vo_y = rmvnorm(n_vo, mean=rep(vo_mu, q), sigma = diag(0.1,q))
-vo_x = rmvnorm(n_vo, sigma = diag(1,p))
-vo = cbind(vo_y, vo_x)
-} else {
-  vo = NULL
-}
-
-#combine and return the data
-data = rbind(clean, bl, vo, gl)
-
-if(plot == TRUE) {plot(x = data[,q+1] , y = data[,1])}
- 
-
