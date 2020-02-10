@@ -541,7 +541,6 @@ simulate <- function(m, n, bl, vo) {
   result = simulate_set(n, gl=0, bl=bl, vo=vo)
   if(m > 1){
     for(i in 2:m){
-      print(i)
       temp = simulate_set(n, gl=0, bl=bl, vo=vo)
       result = rbind(result, temp)
     }
@@ -560,32 +559,41 @@ simulate <- function(m, n, bl, vo) {
 }
 
 simulation_study <- function(m, bl, vo) {
+  print("n 50")
   n50 = simulate(m, 50, bl, vo)
+  
   n100 = simulate(m, 100, bl, vo)
+  print("n 100")
+  
   n500 = simulate(m, 500, bl, vo)
+  print("n 500")
   
   return(rbind(n50,n100,n500))
 }
 
 #simulation for all configs
-m=1
+m=1000
 
 #config 1
+print("config 1")
 bl = 0
 vo = 0
 config1 = simulation_study(m, bl, vo)
 
 #config 2
+print("config 2")
 bl = 0.15
 vo = 0
 config2 = simulation_study(m, bl, vo)
 
 #config 3
+print("config 3")
 bl = 0
 vo = 0.15
 config3 = simulation_study(m, bl, vo)
 
 #config 4
+print("config 4")
 bl = 0.1
 vo = 0.1
 config4 = simulation_study(m, bl, vo)
@@ -594,3 +602,4 @@ config4 = simulation_study(m, bl, vo)
 simulation_result = rbind(config1, config2, config3, config4)
 
 print(simulation_result)
+
