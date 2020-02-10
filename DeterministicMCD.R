@@ -537,17 +537,27 @@ simulate_set <- function(n, gl, bl, vo, alpha = 0.75, plot = FALSE, legend = FAL
 }
 
 simulate <- function(m, n, bl, vo) {
+  #simulating data
   result = simulate_set(n, gl=0, bl=bl, vo=vo)
-    
   if(m > 1){
     for(i in 2:m){
+      print(i)
       temp = simulate_set(n, gl=0, bl=bl, vo=vo)
       result = rbind(result, temp)
     }
   }
   
-  return(result)
+  #calculating averages
+  mse = colMeans(result)
+  
+  #adding config
+  mse$m = m
+  mse$n = n
+  mse$bl = bl
+  mse$vo = vo
+  
+  return(mse)
 }
 
-simulate(m=200,n=50,bl=0,vo=0)
+simulate(m=10,n=50,bl=0,vo=0)
 
