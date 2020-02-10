@@ -20,6 +20,7 @@
 # install.packages("ggplot2")
 
 library("MASS")
+library("mvtnorm")
 library("robustbase")
 library("ggplot2")
 library("datasets")
@@ -424,27 +425,64 @@ p6 <- plot_ly(z = as.matrix(EIF_results[[6]])) %>%
 
 
 # Simulation Study --------------------------------------------
-
-generateData <- function(n, p, corr){
-  #Generate clean data
-  clean_data = rmvnorm(n, sigma = diag(1,p), mean = rep(0, p))
-  
-  #apply transformation to correlate the data
-  G = matrix(corr, p, p)
-  diag(G) = 1
-  
-  clean_data = apply(clean_data,2, function(row) G%*%row)
-  
-  return(clean_data)
-}
-
-
-data = generateData(5,2,0.75)
-
-data
-
-plot(x = data[,1], y = data[,2])
-
 set.seed(123)
 
+n = 1000
+p = 1
+q = 1
+plot=TRUE
+
+#proportions of bad leverage points and vertical outliers
+gl = 0.1
+bl = 0.1
+vo = 0.1
+
+#determine amount of observations per type
+n_clean = round(n * (1-bl-vo-gl))
+n_gl = round(n * gl)
+n_bl = round(n * bl)
+n_vo = round(n * vo)
+
+#generate clean data
+clean = rmvnorm(n_clean, sigma = diag(1,p+q))
+
+
+#generate good leverage points
+if (n_gl > 0) {
+  gl_mu = 2*sqrt(qchisq(.99, df=p+q))
+  gl_y = rmvnorm(n_gl, sigma = diag(1,q))
+  gl_x = rmvnorm(n_gl, mean=rep(gl_mu, p), sigma = diag(0.1,p))
+  gl = cbind(gl_y, gl_x)
+} else {
+  gl = NULL
+}
+
+#generate bad leverage points
+if (n_bl > 0) {
+bl_mu_x = 2*sqrt(qchisq(.99, df=p))
+bl_mu_y = 2*sqrt(qchisq(.99, df=q))
+
+bl_x = rmvnorm(n_bl, mean=rep(bl_mu_x, p), sigma = diag(0.1,p))
+bl_y = rmvnorm(n_bl, mean=rep(bl_mu_y, q), sigma = diag(0.1,q))
+
+bl = cbind(bl_y, bl_x)
+} else {
+  bl = NULL
+}
+
+#generate vertical outliers
+if (n_vo > 0) {
+vo_mu = 2*sqrt(qchisq(.99, df=p+q))
+vo_y = rmvnorm(n_vo, mean=rep(vo_mu, q), sigma = diag(0.1,q))
+vo_x = rmvnorm(n_vo, sigma = diag(1,p))
+vo = cbind(vo_y, vo_x)
+} else {
+  vo = NULL
+}
+
+#combine and return the data
+data = rbind(clean, bl, vo, gl)
+
+if(plot == TRUE) {plot(x = data[,q+1] , y = data[,1])}
+ 
 
