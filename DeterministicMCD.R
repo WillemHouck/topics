@@ -45,7 +45,7 @@ hist(Eredivisie28$Age, prob=TRUE, main="", xlim = c(10,35), xlab = "Age")
 curve(dnorm(x, fit_age$estimate[1], fit_age$estimate[2]), col="red", lwd=2, add=T)
 
 fit_MV <- fitdistr(Eredivisie28$MarketValue, densfun="normal")
-hist(Eredivisie28$MarketValue, prob=TRUE, main="", xlab = "log of MarketValue", xlim = c(10,18))
+hist(Eredivisie28$MarketValue, prob=TRUE, main="", xlab = "log of MarketValue", xlim = c(10,20))
 curve(dnorm(x, fit_MV$estimate[1], fit_MV$estimate[2]), col="red", lwd=2, add=T)
 
 par(mfrow=c(1,1))
@@ -348,15 +348,13 @@ legend("topleft", legend = c("plug-in","lts","ols","reweighted","raw"), col = c(
 
 
 # Empirical Influence Function --------------------------------------------
-#plug in
 
-calculate_EIF <- function(data){ #not a general function
+ calculate_EIF <- function(data){ #not a general function
+  set.seed(121134)
   observation_to_change <- sample(1:nrow(data), size = 1) #value to be changed
   
-  x <- seq(from = min(data[,1])-2,to = max(data[,1])+2,by = 1)
-  y <- seq(from = min(floor(data[,2]))-2,to = max(floor(data[,2]))+2,by = 1)
-  
-  # x <- seq(from = )
+  x <- seq(from = 10,to = 35,by = 1)
+  y <- seq(from = 10,to = 20,by = 1)
   
   plug_in_EIF_intercept <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
   plug_in_EIF_slope <- as.data.frame(matrix(data = NA, nrow = length(x), ncol = length(y), dimnames = list(x,y)))
@@ -396,31 +394,47 @@ EIF_results <- calculate_EIF(Eredivisie28)
 
 
 
-p1 <- plot_ly(z = as.matrix(EIF_results[[1]])) %>% 
+p1 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[1]])) %>% 
   add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
   layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
-                      xaxis = list(title = "Age"),
-                      yaxis = list(title = "MarketValue")))
+                      xaxis = list(title = "log(MarketValue)"),
+                      yaxis = list(title = "Age"),
+                      zaxis = list(title = "EIF")))
 
-p2 <- plot_ly(z = as.matrix(EIF_results[[2]])) %>% 
+p2 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[2]])) %>% 
   add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
-  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
+                      xaxis = list(title = "log(MarketValue)"),
+                      yaxis = list(title = "Age"),
+                      zaxis = list(title = "EIF")))
 
-p3 <- plot_ly(z = as.matrix(EIF_results[[3]]))%>% 
+p3 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[3]]))%>% 
   add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
-  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
+                     xaxis = list(title = "log(MarketValue)"),
+                     yaxis = list(title = "Age"),
+                     zaxis = list(title = "EIF")))
 
-p4 <- plot_ly(z = as.matrix(EIF_results[[4]]))%>% 
+p4 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[4]]))%>% 
   add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
-  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
+                        xaxis = list(title = "log(MarketValue)"),
+                        yaxis = list(title = "Age"),
+                        zaxis = list(title = "EIF")))
 
-p5 <- plot_ly(z = as.matrix(EIF_results[[5]])) %>% 
+p5 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[5]])) %>% 
   add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
-  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
+                      xaxis = list(title = "log(MarketValue)"),
+                      yaxis = list(title = "Age"),
+                      zaxis = list(title = "EIF")))
 
-p6 <- plot_ly(z = as.matrix(EIF_results[[6]])) %>% 
+p6 <- plot_ly(x = 10:20, y = 10:35, z = as.matrix(EIF_results[[6]])) %>% 
   add_surface(contours = list(z = list(show=TRUE, usecolormap=TRUE, highlightcolor="#ff0000", project=list(z=TRUE)))) %>%
-  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3))))
+  layout(scene = list(camera=list(eye = list(x=2, y=1, z=0.3)),
+                      xaxis = list(title = "log(MarketValue)"),
+                      yaxis = list(title = "Age"),
+                      zaxis = list(title = "EIF")))
 
 
 
