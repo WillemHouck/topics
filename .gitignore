@@ -3,3 +3,4 @@
 .RData
 .Ruserdata
 mv/
+.ipynb_checkpoints

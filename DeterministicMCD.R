@@ -602,4 +602,4 @@ config4 = simulation_study(m, bl, vo)
 simulation_result = rbind(config1, config2, config3, config4)
 
 print(simulation_result)
-
+write.csv(simulation_result,"./simulation_results.csv", row.names = TRUE)
