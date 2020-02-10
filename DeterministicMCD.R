@@ -169,11 +169,11 @@ Cstep <- function(H, indices, z, h){
     T.k1 = apply(H, 2, mean)
     count = count + 1
   }
-  print(S.k)
+  #print(S.k)
   # indices.all = indices
   # T.hat = T.k
   # S.hat= S.k
-  print(paste0("#iter of Cstep: ", count))
+  #print(paste0("#iter of Cstep: ", count))
   return(list(T.k, S.k, indices))
 }
 ## Main function for deterministic MCD algorithm
@@ -213,7 +213,7 @@ covDetMCD <- function(x, alpha, ...) {
   #save raw estimates as (parameters x amount of initial covariances) parameters =(location, scale, indices)
   estimates.raw = list()
   h = h.alpha.n(alpha, n = nrow(z) , p = ncol(z))
-  print(paste0("#obs for constructing raw estimates (h): ",h))
+  #print(paste0("#obs for constructing raw estimates (h): ",h))
   
   for (k in 1:length(S)){
     # for each initial cov, calculate the mean and cov for H0
@@ -502,6 +502,8 @@ simulate_set <- function(n, gl, bl, vo, alpha = 0.75, plot = FALSE, legend = FAL
   lts_regression <- ltsReg(x = x, y = y, alpha = alpha)
   ols_regression <- lm(y ~ x)
   
+  
+  #plot
   if(plot == TRUE) {
     plot(x = x , y = y)
   
@@ -517,7 +519,35 @@ simulate_set <- function(n, gl, bl, vo, alpha = 0.75, plot = FALSE, legend = FAL
     legend("topleft", legend = c("plug-in","lts","ols","reweighted","raw"), col = c("orange", "blue", "green","black","red"), lty = c(1,1,1,1,2), cex = 0.8)
     }
   }
+  
+  #determine perfomance measures (squared error)
+  
+  plug_in_slope = plug_in_regression[[1]][[2]]^2
+  plug_in_intercept = plug_in_regression[[1]][[1]]^2
+  
+  lts_slope = lts_regression$coefficients[[2]]^2
+  lts_intercept = lts_regression$coefficients[[1]]^2
+  
+  ols_slope = ols_regression$coefficients[[2]]^2
+  ols_intercept = ols_regression$coefficients[[1]]^2
+  
+  
+  
+  return(data.frame(plug_in_slope, plug_in_intercept, lts_slope, lts_intercept, ols_slope, ols_intercept))
 }
 
-simulate_set(1000, gl = 0.2, bl=0, vo=0, plot = TRUE)
-set.seed(123)
+simulate <- function(m, n, bl, vo) {
+  result = simulate_set(n, gl=0, bl=bl, vo=vo)
+    
+  if(m > 1){
+    for(i in 2:m){
+      temp = simulate_set(n, gl=0, bl=bl, vo=vo)
+      result = rbind(result, temp)
+    }
+  }
+  
+  return(result)
+}
+
+simulate(m=200,n=50,bl=0,vo=0)
+
