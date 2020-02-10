@@ -559,5 +559,38 @@ simulate <- function(m, n, bl, vo) {
   return(mse)
 }
 
-simulate(m=10,n=50,bl=0,vo=0)
+simulation_study <- function(m, bl, vo) {
+  n50 = simulate(m, 50, bl, vo)
+  n100 = simulate(m, 100, bl, vo)
+  n500 = simulate(m, 500, bl, vo)
+  
+  return(rbind(n50,n100,n500))
+}
 
+#simulation for all configs
+m=1
+
+#config 1
+bl = 0
+vo = 0
+config1 = simulation_study(m, bl, vo)
+
+#config 2
+bl = 0.15
+vo = 0
+config2 = simulation_study(m, bl, vo)
+
+#config 3
+bl = 0
+vo = 0.15
+config3 = simulation_study(m, bl, vo)
+
+#config 4
+bl = 0.1
+vo = 0.1
+config4 = simulation_study(m, bl, vo)
+
+
+simulation_result = rbind(config1, config2, config3, config4)
+
+print(simulation_result)
